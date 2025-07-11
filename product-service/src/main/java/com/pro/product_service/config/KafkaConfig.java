@@ -32,6 +32,7 @@ public class KafkaConfig {
                 ConsumerConfig.GROUP_ID_CONFIG, GROUP_ID,
                 ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class,
                 ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, JsonDeserializer.class,
+                ConsumerConfig.GROUP_INSTANCE_ID_CONFIG,"1",
                 ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest",
                 JsonDeserializer.TRUSTED_PACKAGES, "*"
         );

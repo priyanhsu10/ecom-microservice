@@ -6,14 +6,10 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.springframework.boot.CommandLineRunner;
-import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
-import reactor.core.scheduler.Schedulers;
 import reactor.kafka.receiver.KafkaReceiver;
-import reactor.kafka.receiver.ReceiverOptions;
-import reactor.kafka.receiver.ReceiverRecord;
 
 @Service
 @RequiredArgsConstructor
@@ -25,7 +21,7 @@ public class UpdateOrderListener implements CommandLineRunner {
 
     public Flux<Void> updateInventory() {
 
-      return   inventoryUpdateKafkaTemplate.receive()
+        return inventoryUpdateKafkaTemplate.receive()
                 .flatMap(this::processInventoryUpdate)
                 .onErrorContinue((throwable, o) -> {
                     // Handle error
@@ -37,16 +33,7 @@ public class UpdateOrderListener implements CommandLineRunner {
 
         return Mono.just(record)
 
-                .flatMap(consumerRecord -> {
-                    InventoryUpdate inventoryUpdate = consumerRecord.value();
-                    String productId = inventoryUpdate.getProductId();
-                    int quantity = inventoryUpdate.getQuantity();
-
-                    return inventoryService.updateStock(productId, quantity)
-                            .doOnSuccess(aVoid -> log.info("Inventory updated for product: {} " , productId))
-                            .doOnError(error -> log.info("Failed to update inventory for product: " + productId + ", Error: " + error.getMessage()))
-                            .then();
-                })
+                .flatMap(this::processPipeline)
                 .then();
 
     }
@@ -55,5 +42,22 @@ public class UpdateOrderListener implements CommandLineRunner {
     public void run(String... args) throws Exception {
         log.info("--------------------------------Starting update order listener------------------");
         updateInventory().subscribe();
+    }
+
+    private Mono<Void> processPipeline(ConsumerRecord<String, InventoryUpdate> consumerRecord) {
+        return Mono.just(consumerRecord)
+                .flatMap(x -> {
+                    InventoryUpdate inventoryUpdate = consumerRecord.value();
+                    String productId = inventoryUpdate.getProductId();
+                    int quantity = inventoryUpdate.getQuantity();
+
+                    return inventoryService.updateStock(productId, quantity)
+                            .doOnSuccess(aVoid -> log.info("Inventory updated for product: {} ", productId))
+                            .doOnError(error -> log.info("Failed to update inventory for product: {}  Error: {}", productId, error.getMessage()));
+
+
+                })
+                .then();
+
     }
 }
